@@ -7,7 +7,7 @@ public class Main {
         if (args.length < 2) {
             System.out.println("Usage:");
             System.out.println("  To start server: java Main server <port>");
-            System.out.println("  To start client: java Main client <clientName> [groupId]");
+            System.out.println("  To start client: java Main client <clientName> [channelId]");
             System.exit(1);
         }
 
@@ -23,9 +23,7 @@ public class Main {
             System.out.println("Starting server on port " + port + "...");
             Server.startServer(port);
         } else if (mode.equalsIgnoreCase("client")) {
-            String clientName = args[1];
-            String groupId = args.length > 2 ? args[2] : null;
-            System.out.println("Starting client with name: " + clientName + (groupId != null ? ", group: " + groupId : ""));
+            String targetSeverPort = args[1];
             // TODO: Implement client logic here
         } else {
             System.out.println("Unknown mode: " + mode);

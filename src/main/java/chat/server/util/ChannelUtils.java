@@ -11,6 +11,7 @@ public class ChannelUtils {
     public static String CLIENT_MESSAGE_KEY = "clientMessage";
     public static String CLIENT_NAME_KEY = "clientName";
     public static String CLIENT_ID_KEY = "clientId";
+    public static String CHANNEL_ID_KEY = "channelId";
 
     public static Map<String, String> mapClientMessage(String clientMessage) {
         // client message should be JSON format
@@ -31,8 +32,29 @@ public class ChannelUtils {
             mapping.put(CLIENT_NAME_KEY, clientName);
             mapping.put(CLIENT_ID_KEY, clientId);
             mapping.put(CLIENT_MESSAGE_KEY, message);
-        } catch (JsonProcessingException | JsonMappingException e) {
+        } catch (JsonProcessingException e) {
             System.out.println(String.format("Could not parse clientMessage %s", clientMessage));
+        }
+
+        return mapping;
+    }
+
+    public static Map<String, String> mapClientJoinRequest(String clientRequest) {
+        Map<String, String> mapping = null;
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            JsonNode actualObj = mapper.readTree(clientRequest);
+
+            String clientName = actualObj.get("name").textValue();
+            String clientId = actualObj.get("id").textValue();
+            String channelId = actualObj.get("channelId").textValue();
+
+            mapping = new HashMap<>();
+            mapping.put(CLIENT_NAME_KEY, clientName);
+            mapping.put(CLIENT_ID_KEY, clientId);
+            mapping.put(CHANNEL_ID_KEY, channelId);
+        } catch (JsonProcessingException e) {
+            System.out.println(String.format("Could not parse clientRequest %s", clientRequest));
         }
 
         return mapping;
