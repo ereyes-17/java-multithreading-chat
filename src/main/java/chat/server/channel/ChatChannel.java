@@ -1,7 +1,6 @@
 package chat.server.channel;
 
 import java.io.IOException;
-import java.util.List;
 
 import chat.server.model.ChatMember;
 

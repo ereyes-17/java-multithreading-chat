@@ -4,6 +4,7 @@ import org.glassfish.grizzly.http.server.HttpServer;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 
+import chat.server.channel.ChannelRunner;
 import chat.server.channel.ChatChannel;
 import chat.server.channel.ChatChannelImpl;
 import chat.server.model.ChannelResponse;
@@ -65,7 +66,14 @@ public class Server {
                 Increment to the next available port number
                 Run the channel in a new thread
             */
-            return new ChannelResponse("")
+            ChatChannelImpl channel = createNewChannel();
+            executorService.submit(new ChannelRunner(channel));
+            
+            return new ChannelResponse(
+                channel.getId(), 
+                DEFAULT_HOST_IP, 
+                channel.getServerSocket().getLocalPort()
+            );
         }
 
         @POST
@@ -92,8 +100,14 @@ public class Server {
     }
 
     private static ChatChannelImpl createNewChannel() {
-        ChatChannelImpl newChannel = new ChatChannelImpl();
-        newChannel.setId(generateChannelId());
-        newChannel.setSeverSocket(new ServerSocket(getNextAvailablePort()));
+        ChatChannelImpl newChannel = null;
+        try {
+            newChannel = new ChatChannelImpl(getNextAvailablePort());
+            newChannel.setId(generateChannelId());
+        } catch (IOException e) {
+            System.out.println("Could not create new channel.");
+            e.printStackTrace();
+        }
+        return newChannel;
     }
 }
