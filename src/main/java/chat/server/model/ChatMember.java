@@ -1,5 +1,7 @@
 package chat.server.model;
 
+import java.net.Socket;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
@@ -8,5 +10,7 @@ import lombok.Getter;
 @AllArgsConstructor
 public class ChatMember {
     private String name;
-    private Long id;
+    private String id;
+    private Socket socket;
+    private String channelId;
 }

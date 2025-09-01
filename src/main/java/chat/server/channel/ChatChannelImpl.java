@@ -23,9 +23,11 @@ public class ChatChannelImpl implements ChatChannel {
     private String id;
     private String name;
     private ServerSocket serverSocket;
-    private List<ChatMember> members;
+    private volatile List<ChatMember> members;
     private Thread channelThread;
-    private String MESSAGE_BROADCAST = "From <clientName>:\n+<message>";
+
+    private String NEW_MEMBER_GREETING = "Welcome to chat <channelId>! There are <memNum> members here!\n" +
+            "Enjoy your stay!";
 
     public ChatChannelImpl(int port) throws IOException {
         this.serverSocket = new ServerSocket(port);
@@ -37,19 +39,33 @@ public class ChatChannelImpl implements ChatChannel {
         
         while (true) {
             Socket socket = serverSocket.accept();
-            // the channel should display each client message
-            // this way, we avoid clients directly connecting to each other over the socker
+            // at this point, we have a new client connection
+            // we need details on the new client
             DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
-            DataOutputStream dataOutputStream = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
             
             Map<String, String> clientMessageMap = ChannelUtils.mapClientMessage(dataInputStream.readUTF());
-            String clientMessage = clientMessageMap.get(ChannelUtils.CLIENT_MESSAGE_KEY);
             String clientName = clientMessageMap.get(ChannelUtils.CLIENT_NAME_KEY);
             String clientId = clientMessageMap.get(ChannelUtils.CLIENT_ID_KEY);
 
-            String broadcastMessage = MESSAGE_BROADCAST.replace("<clientName>", clientName).replace("<message>", clientMessage);
-            dataOutputStream.writeUTF(broadcastMessage);
-            dataOutputStream.flush();
+            ChatMember newChatMember = new ChatMember(clientId, clientName, socket, this.id);
+            members.add(newChatMember);
+
+            // broadcast the new member has joined
+            for (ChatMember member : members) {
+                if (!member.getId().equals(clientId)) {
+                    DataOutputStream memberOutputStream = new DataOutputStream(new BufferedOutputStream(member.getSocket().getOutputStream()));
+                    String joinMessage = "Chat Member: " + clientName + " has joined the chat.";
+                    memberOutputStream.writeUTF(joinMessage);
+                    memberOutputStream.flush();
+                }
+            }
+
+            // welcome the new member!
+            DataOutputStream newMemberOutputStream = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+            String greeting = NEW_MEMBER_GREETING.replace("<channelId>", this.id).replace("<memNum>", String.valueOf(this.members.size()));
+            newMemberOutputStream.writeUTF(greeting);
+            newMemberOutputStream.flush();
+
         }
     }
 
