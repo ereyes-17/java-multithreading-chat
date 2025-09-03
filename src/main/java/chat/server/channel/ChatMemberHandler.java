@@ -1,15 +1,12 @@
 package chat.server.channel;
 
 import java.io.BufferedOutputStream;
-import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.net.Socket;
-import java.util.List;
 
 import chat.server.model.ChatMember;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 public class ChatMemberHandler implements Runnable {
     @Getter
@@ -48,7 +45,6 @@ public class ChatMemberHandler implements Runnable {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            
         }
     }
 }

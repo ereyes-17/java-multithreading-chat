@@ -78,10 +78,14 @@ public class Server {
                 Run the channel in a new thread
                 requestBody contains the raw string sent by the client
             */
-            System.out.println("Received request body: " + requestBody);
+            System.out.println("Creating a new channel for client: " + ChannelUtils.mapClientMessage(requestBody).get("clientName"));
+
             ChatChannelImpl channel = createNewChannel();
             channels.add(channel);
+
             //executorService.submit(new ChannelRunner(channel));
+
+            // Provide new channel info
             ObjectMapper objectMapper = new ObjectMapper();
             return objectMapper.writeValueAsString(new ChannelResponse(
                 channel.getId(),
@@ -93,16 +97,20 @@ public class Server {
         @POST
         @Path("/join")
         @Consumes(MediaType.TEXT_PLAIN)
-        @Produces(MediaType.TEXT_PLAIN)
+        @Produces(MediaType.APPLICATION_JSON)
         public String joinChat(String requestBody) {
-            Map<String, String> clientData = ChannelUtils.mapClientJoinRequest(requestBody);
+            Map<String, String> clientData = ChannelUtils.mapClientRequest(requestBody);
             // verify channel id exists
             Optional<ChatChannelImpl> channel = channels.stream().filter(c -> c.getId().equals(clientData.get(ChannelUtils.CHANNEL_ID_KEY))).findFirst();
 
             if (channel.isPresent()) {
-                // Join the channel
-                channel.get().addClient(clientData.get(ChannelUtils.CLIENT_ID_KEY));
-                return "Joined chat.";
+                // Provide information needed to join the channel
+                ChannelResponse channelResponse = new ChannelResponse(
+                    channel.get().getId(),
+                    DEFAULT_HOST_IP,
+                    channel.get().getServerSocket().getLocalPort()
+                );
+                return channelResponse.toString();
             } else {
                 return "{\"error\": \"CHANNEL_NOT_FOUND\"}";
             }

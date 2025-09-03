@@ -1,5 +1,6 @@
 package chat.main;
 
+import chat.client.ChatClient;
 import chat.server.Server;
 
 public class Main {
@@ -23,8 +24,9 @@ public class Main {
             System.out.println("Starting server on port " + port + "...");
             Server.startServer(port);
         } else if (mode.equalsIgnoreCase("client")) {
-            String targetSeverPort = args[1];
-            // TODO: Implement client logic here
+            String targetServerPort = args[1];
+            ChatClient chatClient = new ChatClient(Integer.parseInt(targetServerPort));
+            chatClient.startInteractive();
         } else {
             System.out.println("Unknown mode: " + mode);
         }

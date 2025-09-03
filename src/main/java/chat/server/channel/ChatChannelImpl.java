@@ -65,7 +65,6 @@ public class ChatChannelImpl implements ChatChannel {
             String greeting = NEW_MEMBER_GREETING.replace("<channelId>", this.id).replace("<memNum>", String.valueOf(this.members.size()));
             newMemberOutputStream.writeUTF(greeting);
             newMemberOutputStream.flush();
-
         }
     }
 

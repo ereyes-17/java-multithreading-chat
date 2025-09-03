@@ -39,7 +39,7 @@ public class ChannelUtils {
         return mapping;
     }
 
-    public static Map<String, String> mapClientJoinRequest(String clientRequest) {
+    public static Map<String, String> mapClientRequest(String clientRequest) {
         Map<String, String> mapping = null;
         ObjectMapper mapper = new ObjectMapper();
         try {
@@ -47,7 +47,10 @@ public class ChannelUtils {
 
             String clientName = actualObj.get("name").textValue();
             String clientId = actualObj.get("id").textValue();
-            String channelId = actualObj.get("channelId").textValue();
+
+            JsonNode channelIdNode = actualObj.path("channelId");
+            // it's ok if channelId is null (typically for new channel requests)
+            String channelId = channelIdNode.isMissingNode() ? null : channelIdNode.textValue();
 
             mapping = new HashMap<>();
             mapping.put(CLIENT_NAME_KEY, clientName);

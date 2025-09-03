@@ -10,8 +10,10 @@ import java.net.URI;
 import java.net.UnknownHostException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.Scanner;
+import java.util.UUID;
 
 import com.fasterxml.jackson.core.io.DataOutputAsStream;
 
@@ -24,6 +26,7 @@ public class ChatClient {
     private String name;
     private String channelId;
     private Socket socket;
+    private String serverUrl;
 
     private void connectToChannel(String host, int port) throws UnknownHostException, IOException {
         socket = new Socket(host, port);
@@ -33,6 +36,10 @@ public class ChatClient {
             DataOutputStream dataOutputStream = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
     
         }
+    }
+
+    public ChatClient(int port) {
+        this.serverUrl = "http://localhost:" + port;
     }
     
     public void startInteractive() {
@@ -45,33 +52,43 @@ public class ChatClient {
         String action = scanner.nextLine().trim().toLowerCase();
 
         String channelId = null;
+        String requestBody = null;
+        String url = null;
         if (action.equals("new")) {
             System.out.println("Creating a new channel...");
             // Here you would call the server to create a new channel and get the channelId
-            channelId = "<new-channel-id>";
-            System.out.println("New channel created with id: " + channelId);
+            requestBody = "{\"name\": \"" + name + "\", \"id\": \"" + UUID.randomUUID().toString() + "\"}";
+            url = this.serverUrl + "/api/v1/chat/new";
         } else if (action.equals("join")) {
-            System.out.print("Enter the channel id to join: ");
-            channelId = scanner.nextLine();
-            System.out.println("Joining channel with id: " + channelId);
+            channelId = scanner.nextLine().trim();
+            requestBody = "{\"name\": \"" + name + "\", \"id\": \"" + UUID.randomUUID().toString() + "\", \"channelId\": \"" + channelId + "\"}";
+            url = this.serverUrl + "/api/v1/chat/join";
         } else {
             System.out.println("Invalid option. Exiting.");
             scanner.close();
+            System.exit(1);
         }
 
-        List<String> channelIds = new ArrayList<>();
-        channelIds.add(channelId);
-        ChatClient client = new ChatClient(null, name, channelIds);
-        // Continue with client logic (e.g., chat loop)
+        String response = null;
+        try {
+            System.out.println("Sending request to server: " + url + " with response body: " + requestBody);
+            response = submitNewRequest(requestBody, url);
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
         scanner.close();
+        System.out.println("Server response: " + response);
+        System.exit(1);
     }
 
-    private String submitNewRequest() {
+    private String submitNewRequest(String requestBody, String url) throws IOException, InterruptedException {
         HttpClient httpClient = HttpClient.newHttpClient();
         HttpRequest hRequest = HttpRequest.newBuilder()
-            .uri(URI.create("http://localhost:8080/api/v1/chat/new"))
-            .POST(HttpRequest.BodyPublishers.ofString("Hello, server!"))
+            .uri(URI.create(url))
+            .POST(HttpRequest.BodyPublishers.ofString(requestBody))
             .build();
-        httpClient.send(hRequest, HttpResponse.BodyHandlers.ofString());
+
+        HttpResponse<String> response = httpClient.send(hRequest, HttpResponse.BodyHandlers.ofString());
+        return response.body();
     }
 }
