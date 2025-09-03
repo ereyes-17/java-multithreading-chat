@@ -12,10 +12,12 @@ import chat.server.channel.ChannelRunner;
 import chat.server.channel.ChatChannel;
 import chat.server.channel.ChatChannelImpl;
 import chat.server.model.ChannelResponse;
+import chat.server.model.ChatMember;
 import chat.server.util.ChannelUtils;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.core.MediaType;
@@ -40,15 +42,14 @@ public class Server {
     private static List<Integer> ports;
 
     public static HttpServer startServer(int port) {
-        String uri = "http://0.0.0.0:" + port + "/";
+        String uri = "http://127.0.0.1:" + port;
 
         final ResourceConfig rc = new ResourceConfig()
             .register(ChatResource.class)
-            .register(ObjectMapperProvider.class)
-            .register(SerializationFeature.class);
+            .register(HealthResource.class);
 
         HttpServer server = GrizzlyHttpServerFactory.createHttpServer(URI.create(uri), rc);
-        System.out.println("Jersey app started at " + uri + "\nPress enter to stop...");
+        System.out.println("Jersey app started at " + uri + "\nServer is running. Press Ctrl+C to stop.");
 
         // Initialize the ports
         ports = new ArrayList<>();
@@ -56,14 +57,17 @@ public class Server {
         // Initialize channels
         channels = new ArrayList<>();
 
-        try {
-            System.in.read();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        server.shutdownNow();
+        // Server will keep running until process is killed (Ctrl+C)
         return server;
+    }
+
+    @Path("/api/v1/health")
+    public static class HealthResource {
+        @GET
+        @Produces(MediaType.TEXT_PLAIN)
+        public String healthCheck() {
+            return "Server is healthy.";
+        }
     }
 
     @Path("/api/v1/chat")
@@ -71,38 +75,50 @@ public class Server {
         @POST
         @Path("/new")
         @Consumes(MediaType.TEXT_PLAIN)
-        @Produces(MediaType.APPLICATION_JSON)
-        public String newChat(String requestBody) throws JsonProcessingException {
-            /* This endpoint needs to create a new channel
-                Increment to the next available port number
-                Run the channel in a new thread
-                requestBody contains the raw string sent by the client
-            */
-            System.out.println("Creating a new channel for client: " + ChannelUtils.mapClientMessage(requestBody).get("clientName"));
-
-            ChatChannelImpl channel = createNewChannel();
-            channels.add(channel);
-
-            //executorService.submit(new ChannelRunner(channel));
-
-            // Provide new channel info
+        @Produces(MediaType.TEXT_PLAIN)
+        public String newChat(String requestBody) {
             ObjectMapper objectMapper = new ObjectMapper();
-            return objectMapper.writeValueAsString(new ChannelResponse(
-                channel.getId(),
-                DEFAULT_HOST_IP,
-                channel.getServerSocket().getLocalPort()
-            ));
+            try {
+                System.out.println("Received request to create a new chat channel: " + requestBody);
+                String clientName = ChannelUtils.mapClientRequest(requestBody).get(ChannelUtils.CLIENT_NAME_KEY);
+                System.out.println("Creating a new channel for client: " + clientName);
+
+                ChatChannelImpl channel = createNewChannel();
+                if (channel == null) {
+                    System.out.println("Channel creation failed.");
+                    return objectMapper.writeValueAsString(Map.of("error", "CHANNEL_CREATION_FAILED"));
+                }
+                channels.add(channel);
+                executorService.submit(new ChannelRunner(channel));
+                ChannelResponse response = new ChannelResponse(
+                    channel.getId(),
+                    DEFAULT_HOST_IP,
+                    channel.getServerSocket().getLocalPort()
+                );
+                return objectMapper.writeValueAsString(response);
+            } catch (Exception e) {
+                System.out.println("Error in newChat endpoint: " + e.getMessage());
+                e.printStackTrace();
+                try {
+                    return objectMapper.writeValueAsString(Map.of("error", "INTERNAL_SERVER_ERROR"));
+                } catch (JsonProcessingException ex) {
+                    return "{\"error\":\"INTERNAL_SERVER_ERROR\"}";
+                }
+            }
         }
 
         @POST
         @Path("/join")
         @Consumes(MediaType.TEXT_PLAIN)
-        @Produces(MediaType.APPLICATION_JSON)
+        @Produces(MediaType.TEXT_PLAIN)
         public String joinChat(String requestBody) {
             Map<String, String> clientData = ChannelUtils.mapClientRequest(requestBody);
+            if (clientData.get(ChannelUtils.CHANNEL_ID_KEY) == null) {
+                return "{\"error\": \"CHANNEL_ID_MISSING\"}";
+            }
             // verify channel id exists
             Optional<ChatChannelImpl> channel = channels.stream().filter(c -> c.getId().equals(clientData.get(ChannelUtils.CHANNEL_ID_KEY))).findFirst();
-
+            ObjectMapper objectMapper = new ObjectMapper();
             if (channel.isPresent()) {
                 // Provide information needed to join the channel
                 ChannelResponse channelResponse = new ChannelResponse(
@@ -110,17 +126,55 @@ public class Server {
                     DEFAULT_HOST_IP,
                     channel.get().getServerSocket().getLocalPort()
                 );
-                return channelResponse.toString();
+                try {
+                    return objectMapper.writeValueAsString(channelResponse);
+                } catch (JsonProcessingException e) {
+                    e.printStackTrace();
+                    return "{\"error\":\"INTERNAL_SERVER_ERROR\"}";
+                }
             } else {
                 return "{\"error\": \"CHANNEL_NOT_FOUND\"}";
             }
         }
 
         @POST
-        @Path("/leave")
+        @Path("/leave/{channelId}")
+        @Consumes(MediaType.TEXT_PLAIN)
         @Produces(MediaType.TEXT_PLAIN)
-        public String leaveChat() {
+        public String leaveChat(@PathParam("channelId") String channelId, String requestBody) {
+            Map<String, String> clientData = ChannelUtils.mapClientRequest(requestBody);
+            Optional<ChatChannelImpl> channelOptional = channels.stream().filter(c -> c.getId().equals(clientData.get(ChannelUtils.CHANNEL_ID_KEY))).findFirst();
+            ChatChannelImpl channel;
+            if (channelOptional.isPresent()) {
+                channel = channelOptional.get();
+            } else {
+                return "No such channel.";
+            }
+            List<ChatMember> chatMembers = channel.getMembers();
+            Optional<ChatMember> chatMemberOptional = chatMembers.stream().filter(m -> m.getId().equals(clientData.get(ChannelUtils.CLIENT_ID_KEY))).findFirst();
+            if (chatMemberOptional.isPresent()) {
+                // might wanna thread this
+                ChatMember chatMember = chatMemberOptional.get();
+                try {
+                    chatMember.getSocket().getOutputStream().close();
+                    chatMember.getSocket().getInputStream().close();
+                    chatMember.getSocket().close();
+                } catch (IOException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+                channel.removeMember(chatMemberOptional.get());
+                return "Removed from channel.";
+            }
             return "Left chat.";
+        }
+
+        @POST
+        @Path("/delete/{channelId}")
+        @Consumes(MediaType.TEXT_PLAIN)
+        @Produces(MediaType.TEXT_PLAIN)
+        public String deleteChannel(@PathParam("channelId") String channelId, String requestBody) {
+            return null;
         }
     }
 

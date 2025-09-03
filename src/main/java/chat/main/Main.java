@@ -26,7 +26,13 @@ public class Main {
         } else if (mode.equalsIgnoreCase("client")) {
             String targetServerPort = args[1];
             ChatClient chatClient = new ChatClient(Integer.parseInt(targetServerPort));
-            chatClient.startInteractive();
+            boolean joinChannel = chatClient.startInteractive();
+            try {
+                chatClient.connectToChannel(joinChannel);
+            } catch(Exception e) {
+                e.printStackTrace();
+            }
+            
         } else {
             System.out.println("Unknown mode: " + mode);
         }
