@@ -86,6 +86,9 @@ public class ChatClient {
         HttpRequest hRequest = HttpRequest.newBuilder()
             .uri(URI.create(url))
             .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json")
+            .header("Content-Length", String.valueOf(requestBody.length()))
             .build();
 
         HttpResponse<String> response = httpClient.send(hRequest, HttpResponse.BodyHandlers.ofString());
