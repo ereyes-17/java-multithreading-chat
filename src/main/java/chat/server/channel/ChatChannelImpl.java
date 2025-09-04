@@ -53,7 +53,7 @@ public class ChatChannelImpl implements ChatChannel {
             String clientId = clientMessageMap.get(ChannelUtils.CLIENT_ID_KEY);
             System.out.println(String.format("Name: %s, ID: %s", clientName, clientId));
 
-            ChatMember newChatMember = new ChatMember(clientId, clientName, socket, this.id);
+            ChatMember newChatMember = new ChatMember(clientName, clientId, socket, this.id);
             this.members.add(newChatMember);
             //members.add(newChatMember);
             //for (ChatMember member : members) {

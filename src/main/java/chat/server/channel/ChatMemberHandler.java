@@ -29,7 +29,7 @@ public class ChatMemberHandler implements Runnable {
     @Override
     public void run() {
         this.threadName = Thread.currentThread().getName();
-        System.out.println(String.format("Thread %s is handling chat member: %s", this.threadName, this.currentMember.getName()));
+        System.out.println(String.format("Thread %s is handling chat member: (name=%s, id=%s) %s", this.threadName, this.currentMember.getName(), this.currentMember.getId()));
         // welcome the new member!
         DataOutputStream newMemberOutputStream;
         try {
@@ -42,7 +42,7 @@ public class ChatMemberHandler implements Runnable {
             e.printStackTrace();
         }
         
-        Thread.currentThread().interrupt();
+        /* 
         while (true) {
             try {
                 DataInputStream dataInputStream = new DataInputStream(this.socket.getInputStream());
@@ -61,7 +61,7 @@ public class ChatMemberHandler implements Runnable {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-        }
+        }*/
 
     }
 }
